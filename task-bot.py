@@ -1,6 +1,6 @@
 import os
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -21,7 +21,6 @@ async def start(update: Update, context: CallbackContext):
     keyboard = [
         [InlineKeyboardButton("Add Task", callback_data='addtask')],
         [InlineKeyboardButton("View Tasks", callback_data='viewtasks')],
-        [InlineKeyboardButton("Complete Task", callback_data='completetask')],
         [InlineKeyboardButton("Remove Task", callback_data='removetask')],
         [InlineKeyboardButton("Task History", callback_data='history')]
     ]
@@ -31,6 +30,20 @@ async def start(update: Update, context: CallbackContext):
         "Use the buttons below to interact with me or type the commands directly.",
         reply_markup=reply_markup
     )
+
+# Callback for inline buttons
+async def button_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'addtask':
+        await query.edit_message_text(text="Please provide the task name using /addtask <task_name>")
+    elif query.data == 'viewtasks':
+        await viewtasks(update.callback_query, context, is_callback=True)
+    elif query.data == 'removetask':
+        await query.edit_message_text(text="Please provide the task name using /removetask <task_name>")
+    elif query.data == 'history':
+        await history(update.callback_query, context, is_callback=True)
 
 # Command /addtask
 async def addtask(update: Update, context: CallbackContext):
@@ -45,25 +58,23 @@ async def addtask(update: Update, context: CallbackContext):
         await update.message.reply_text("Please provide the task name using /addtask <task_name>")
 
 # Command /viewtasks
-async def viewtasks(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
+async def viewtasks(update, context: CallbackContext, is_callback=False):
+    if is_callback:
+        user_id = update.from_user.id
+    else:
+        user_id = update.message.from_user.id
     tasks = user_tasks.get(user_id, [])
     if tasks:
         task_list = "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(tasks))
-        await update.message.reply_text(f"Your pending tasks:\n{task_list}")
+        if is_callback:
+            await update.edit_message_text(f"Your pending tasks:\n{task_list}")
+        else:
+            await update.message.reply_text(f"Your pending tasks:\n{task_list}")
     else:
-        await update.message.reply_text("You have no pending tasks.")
-
-# Command /completetask
-async def completetask(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    task_name = ' '.join(context.args)
-    tasks = user_tasks.get(user_id, [])
-    if task_name in tasks:
-        tasks.remove(task_name)
-        await update.message.reply_text(f"Task '{task_name}' marked as completed.")
-    else:
-        await update.message.reply_text("Task not found. Please provide the correct task name using /completetask <task_name>")
+        if is_callback:
+            await update.edit_message_text("You have no pending tasks.")
+        else:
+            await update.message.reply_text("You have no pending tasks.")
 
 # Command /removetask
 async def removetask(update: Update, context: CallbackContext):
@@ -77,15 +88,23 @@ async def removetask(update: Update, context: CallbackContext):
         await update.message.reply_text("Task not found. Please provide the correct task name using /removetask <task_name>")
 
 # Command /history
-async def history(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    # For simplicity, we assume history is the same as tasks for now
+async def history(update, context: CallbackContext, is_callback=False):
+    if is_callback:
+        user_id = update.from_user.id
+    else:
+        user_id = update.message.from_user.id
     tasks = user_tasks.get(user_id, [])
     if tasks:
         task_list = "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(tasks))
-        await update.message.reply_text(f"Your task history:\n{task_list}")
+        if is_callback:
+            await update.edit_message_text(f"Your task history:\n{task_list}")
+        else:
+            await update.message.reply_text(f"Your task history:\n{task_list}")
     else:
-        await update.message.reply_text("No task history available.")
+        if is_callback:
+            await update.edit_message_text("No task history available.")
+        else:
+            await update.message.reply_text("No task history available.")
 
 def main():
     # Use the token obtained from the environment variable
@@ -94,9 +113,9 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addtask", addtask))
     application.add_handler(CommandHandler("viewtasks", viewtasks))
-    application.add_handler(CommandHandler("completetask", completetask))
     application.add_handler(CommandHandler("removetask", removetask))
     application.add_handler(CommandHandler("history", history))
+    application.add_handler(CallbackQueryHandler(button_callback))
 
     application.run_polling()
 
