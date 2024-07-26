@@ -98,15 +98,19 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
         user_id = update.message.from_user.id
     tasks = user_tasks.get(user_id, [])
     if tasks:
-        task_list = "\n".join(
-            f"{idx + 1}. {task}\n"
-            f"[Complete](callback_data=f'complete_{idx}') | [Remove](callback_data=f'remove_{idx}')"
-            for idx, task in enumerate(tasks)
-        )
+        buttons = []
+        for idx, task in enumerate(tasks):
+            buttons.append([InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{idx}")])
+            buttons.append([
+                InlineKeyboardButton("Complete", callback_data=f"complete_{idx}"),
+                InlineKeyboardButton("Remove", callback_data=f"remove_{idx}")
+            ])
+        buttons.append([InlineKeyboardButton("Back to Menu", callback_data='back')])
+        reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"Your pending tasks:\n{task_list}")
+            await update.edit_message_text(f"Your pending tasks:", reply_markup=reply_markup)
         else:
-            await update.message.reply_text(f"Your pending tasks:\n{task_list}")
+            await update.message.reply_text(f"Your pending tasks:", reply_markup=reply_markup)
     else:
         if is_callback:
             await update.edit_message_text("You have no pending tasks.")
