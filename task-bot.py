@@ -16,17 +16,16 @@ if TELEGRAM_API_TOKEN is None:
 # Dictionary to store tasks per user
 user_tasks = {}
 
-# Command /start
-async def start(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    keyboard = get_main_menu_keyboard(user_id)
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
-        "👋 Hello! I am your task management bot.\n"
-        "Use the buttons below to interact with me or type the commands directly.",
-        reply_markup=reply_markup
-    )
+# Welcome and Description Message
+WELCOME_MESSAGE = (
+    "👋 Welcome to the Task Management Bot!\n"
+    "I am here to help you manage your tasks efficiently.\n\n"
+    "🔹 Use the buttons below to interact with me or type the commands directly.\n"
+    "🔹 Check out our sponsored TON call channel: [TON Call Secure](https://t.me/TONCALLSECURE)\n\n"
+    "Feel free to reach out if you have any questions or need assistance."
+)
 
+# Function to generate the main menu keyboard
 def get_main_menu_keyboard(user_id):
     if user_id in user_tasks and user_tasks[user_id]:
         return [
@@ -41,13 +40,24 @@ def get_main_menu_keyboard(user_id):
             [InlineKeyboardButton("ℹ️ Help", callback_data='help')]
         ]
 
+# Command /start
+async def start(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    keyboard = get_main_menu_keyboard(user_id)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        WELCOME_MESSAGE,
+        reply_markup=reply_markup,
+        disable_web_page_preview=True
+    )
+
 # Callback for inline buttons
 async def button_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
 
     if query.data == 'addtask':
-        await query.edit_message_text(text="Please provide the task name using /addtask <task_name>")
+        await query.edit_message_text(text=f"{WELCOME_MESSAGE}\n\nPlease provide the task name using /addtask <task_name>", disable_web_page_preview=True)
     elif query.data == 'viewtasks':
         await viewtasks(query, context, is_callback=True)
     elif query.data == 'back':
@@ -68,9 +78,9 @@ async def start_callback(query, context):
     keyboard = get_main_menu_keyboard(user_id)
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(
-        "👋 Hello! I am your task management bot.\n"
-        "Use the buttons below to interact with me or type the commands directly.",
-        reply_markup=reply_markup
+        WELCOME_MESSAGE,
+        reply_markup=reply_markup,
+        disable_web_page_preview=True
     )
 
 # Command /addtask
@@ -88,8 +98,9 @@ async def addtask(update: Update, context: CallbackContext):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "Task added. What would you like to do next?",
-            reply_markup=reply_markup
+            f"{WELCOME_MESSAGE}\n\nTask added. What would you like to do next?",
+            reply_markup=reply_markup,
+            disable_web_page_preview=True
         )
     else:
         await update.message.reply_text("Please provide the task name using /addtask <task_name>")
@@ -112,14 +123,14 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text("📝 Your pending tasks:", reply_markup=reply_markup)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📝 Your pending tasks:", reply_markup=reply_markup, disable_web_page_preview=True)
         else:
-            await update.message.reply_text("📝 Your pending tasks:", reply_markup=reply_markup)
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📝 Your pending tasks:", reply_markup=reply_markup, disable_web_page_preview=True)
     else:
         if is_callback:
-            await update.edit_message_text("You have no pending tasks.")
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nYou have no pending tasks.", disable_web_page_preview=True)
         else:
-            await update.message.reply_text("You have no pending tasks.")
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\nYou have no pending tasks.", disable_web_page_preview=True)
 
 # Command /completetask
 async def completetask(update: Update, context: CallbackContext, task_index: int):
@@ -127,7 +138,7 @@ async def completetask(update: Update, context: CallbackContext, task_index: int
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
-        await update.edit_message_text(f"✅ Task '{task_name}' marked as completed.")
+        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n✅ Task '{task_name}' marked as completed.", disable_web_page_preview=True)
         await start_callback(update, context)
     else:
         await update.message.reply_text("Task not found.")
@@ -138,7 +149,7 @@ async def removetask(update, context: CallbackContext, task_index: int):
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
-        await update.edit_message_text(f"❌ Task '{task_name}' removed.")
+        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n❌ Task '{task_name}' removed.", disable_web_page_preview=True)
         await start_callback(update, context)
     else:
         await update.message.reply_text("Task not found.")
@@ -155,14 +166,14 @@ async def history(update, context: CallbackContext, is_callback=False):
         buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"📜 Your task history:\n{task_list}", reply_markup=reply_markup)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"📜 Your task history:\n{task_list}", reply_markup=reply_markup)
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
     else:
         if is_callback:
-            await update.edit_message_text("No task history available.")
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
         else:
-            await update.message.reply_text("No task history available.")
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
 
 # Command /help
 async def help_command(update, context: CallbackContext, is_callback=False):
@@ -179,9 +190,9 @@ async def help_command(update, context: CallbackContext, is_callback=False):
     buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
     reply_markup = InlineKeyboardMarkup(buttons)
     if is_callback:
-        await update.edit_message_text(text=help_text, reply_markup=reply_markup)
+        await update.edit_message_text(text=f"{WELCOME_MESSAGE}\n\n{help_text}", reply_markup=reply_markup, disable_web_page_preview=True)
     else:
-        await update.message.reply_text(text=help_text, reply_markup=reply_markup)
+        await update.message.reply_text(text=f"{WELCOME_MESSAGE}\n\n{help_text}", reply_markup=reply_markup, disable_web_page_preview=True)
 
 def main():
     # Use the token obtained from the environment variable
