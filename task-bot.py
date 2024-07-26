@@ -18,18 +18,26 @@ user_tasks = {}
 
 # Command /start
 async def start(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("Add Task", callback_data='addtask')],
-        [InlineKeyboardButton("View Tasks", callback_data='viewtasks')],
-        [InlineKeyboardButton("Remove Task", callback_data='removetask')],
-        [InlineKeyboardButton("Task History", callback_data='history')]
-    ]
+    user_id = update.message.from_user.id
+    keyboard = get_main_menu_keyboard(user_id)
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         "Hello! I am your task management bot.\n"
         "Use the buttons below to interact with me or type the commands directly.",
         reply_markup=reply_markup
     )
+
+def get_main_menu_keyboard(user_id):
+    if user_id in user_tasks and user_tasks[user_id]:
+        return [
+            [InlineKeyboardButton("Add Task", callback_data='addtask')],
+            [InlineKeyboardButton("View Tasks", callback_data='viewtasks')],
+            [InlineKeyboardButton("Task History", callback_data='history')]
+        ]
+    else:
+        return [
+            [InlineKeyboardButton("Add Task", callback_data='addtask')]
+        ]
 
 # Callback for inline buttons
 async def button_callback(update: Update, context: CallbackContext):
@@ -39,11 +47,27 @@ async def button_callback(update: Update, context: CallbackContext):
     if query.data == 'addtask':
         await query.edit_message_text(text="Please provide the task name using /addtask <task_name>")
     elif query.data == 'viewtasks':
-        await viewtasks(update.callback_query, context, is_callback=True)
-    elif query.data == 'removetask':
-        await query.edit_message_text(text="Please provide the task name using /removetask <task_name>")
+        await viewtasks(query, context, is_callback=True)
+    elif query.data == 'back':
+        await start_callback(query, context)
+    elif query.data.startswith('complete_'):
+        task_index = int(query.data.split('_')[1])
+        await completetask(query, context, task_index)
+    elif query.data.startswith('remove_'):
+        task_index = int(query.data.split('_')[1])
+        await removetask(query, context, task_index)
     elif query.data == 'history':
-        await history(update.callback_query, context, is_callback=True)
+        await history(query, context, is_callback=True)
+
+async def start_callback(query, context):
+    user_id = query.from_user.id
+    keyboard = get_main_menu_keyboard(user_id)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(
+        "Hello! I am your task management bot.\n"
+        "Use the buttons below to interact with me or type the commands directly.",
+        reply_markup=reply_markup
+    )
 
 # Command /addtask
 async def addtask(update: Update, context: CallbackContext):
@@ -54,6 +78,15 @@ async def addtask(update: Update, context: CallbackContext):
             user_tasks[user_id] = []
         user_tasks[user_id].append(task_name)
         await update.message.reply_text(f"Task '{task_name}' added successfully.")
+        
+        keyboard = [
+            [InlineKeyboardButton("Back to Menu", callback_data='back')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "Task added. What would you like to do next?",
+            reply_markup=reply_markup
+        )
     else:
         await update.message.reply_text("Please provide the task name using /addtask <task_name>")
 
@@ -65,7 +98,11 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
         user_id = update.message.from_user.id
     tasks = user_tasks.get(user_id, [])
     if tasks:
-        task_list = "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(tasks))
+        task_list = "\n".join(
+            f"{idx + 1}. {task}\n"
+            f"[Complete](callback_data=f'complete_{idx}') | [Remove](callback_data=f'remove_{idx}')"
+            for idx, task in enumerate(tasks)
+        )
         if is_callback:
             await update.edit_message_text(f"Your pending tasks:\n{task_list}")
         else:
@@ -76,16 +113,27 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
         else:
             await update.message.reply_text("You have no pending tasks.")
 
-# Command /removetask
-async def removetask(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    task_name = ' '.join(context.args)
+# Command /completetask
+async def completetask(update: Update, context: CallbackContext, task_index: int):
+    user_id = update.from_user.id
     tasks = user_tasks.get(user_id, [])
-    if task_name in tasks:
-        tasks.remove(task_name)
-        await update.message.reply_text(f"Task '{task_name}' removed.")
+    if 0 <= task_index < len(tasks):
+        task_name = tasks.pop(task_index)
+        await update.edit_message_text(f"Task '{task_name}' marked as completed.")
+        await start_callback(update, context)
     else:
-        await update.message.reply_text("Task not found. Please provide the correct task name using /removetask <task_name>")
+        await update.message.reply_text("Task not found.")
+
+# Command /removetask
+async def removetask(update, context: CallbackContext, task_index: int):
+    user_id = update.from_user.id
+    tasks = user_tasks.get(user_id, [])
+    if 0 <= task_index < len(tasks):
+        task_name = tasks.pop(task_index)
+        await update.edit_message_text(f"Task '{task_name}' removed.")
+        await start_callback(update, context)
+    else:
+        await update.message.reply_text("Task not found.")
 
 # Command /history
 async def history(update, context: CallbackContext, is_callback=False):
@@ -112,12 +160,9 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addtask", addtask))
-    application.add_handler(CommandHandler("viewtasks", viewtasks))
-    application.add_handler(CommandHandler("removetask", removetask))
-    application.add_handler(CommandHandler("history", history))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    application.run_polling()
+    application.run_polling(stop_signals=None)
 
 if __name__ == '__main__':
     main()
