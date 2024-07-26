@@ -22,7 +22,7 @@ async def start(update: Update, context: CallbackContext):
     keyboard = get_main_menu_keyboard(user_id)
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Hello! I am your task management bot.\n"
+        "👋 Hello! I am your task management bot.\n"
         "Use the buttons below to interact with me or type the commands directly.",
         reply_markup=reply_markup
     )
@@ -30,13 +30,15 @@ async def start(update: Update, context: CallbackContext):
 def get_main_menu_keyboard(user_id):
     if user_id in user_tasks and user_tasks[user_id]:
         return [
-            [InlineKeyboardButton("Add Task", callback_data='addtask')],
-            [InlineKeyboardButton("View Tasks", callback_data='viewtasks')],
-            [InlineKeyboardButton("Task History", callback_data='history')]
+            [InlineKeyboardButton("➕ Add Task", callback_data='addtask')],
+            [InlineKeyboardButton("📝 View Tasks", callback_data='viewtasks')],
+            [InlineKeyboardButton("📜 Task History", callback_data='history')],
+            [InlineKeyboardButton("ℹ️ Help", callback_data='help')]
         ]
     else:
         return [
-            [InlineKeyboardButton("Add Task", callback_data='addtask')]
+            [InlineKeyboardButton("➕ Add Task", callback_data='addtask')],
+            [InlineKeyboardButton("ℹ️ Help", callback_data='help')]
         ]
 
 # Callback for inline buttons
@@ -58,13 +60,15 @@ async def button_callback(update: Update, context: CallbackContext):
         await removetask(query, context, task_index)
     elif query.data == 'history':
         await history(query, context, is_callback=True)
+    elif query.data == 'help':
+        await help_command(query, context, is_callback=True)
 
 async def start_callback(query, context):
     user_id = query.from_user.id
     keyboard = get_main_menu_keyboard(user_id)
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(
-        "Hello! I am your task management bot.\n"
+        "👋 Hello! I am your task management bot.\n"
         "Use the buttons below to interact with me or type the commands directly.",
         reply_markup=reply_markup
     )
@@ -77,10 +81,10 @@ async def addtask(update: Update, context: CallbackContext):
         if user_id not in user_tasks:
             user_tasks[user_id] = []
         user_tasks[user_id].append(task_name)
-        await update.message.reply_text(f"Task '{task_name}' added successfully.")
+        await update.message.reply_text(f"✅ Task '{task_name}' added successfully.")
         
         keyboard = [
-            [InlineKeyboardButton("Back to Menu", callback_data='back')]
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
@@ -102,15 +106,15 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
         for idx, task in enumerate(tasks):
             buttons.append([InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{idx}")])
             buttons.append([
-                InlineKeyboardButton("Complete", callback_data=f"complete_{idx}"),
-                InlineKeyboardButton("Remove", callback_data=f"remove_{idx}")
+                InlineKeyboardButton("✅ Complete", callback_data=f"complete_{idx}"),
+                InlineKeyboardButton("❌ Remove", callback_data=f"remove_{idx}")
             ])
-        buttons.append([InlineKeyboardButton("Back to Menu", callback_data='back')])
+        buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"Your pending tasks:", reply_markup=reply_markup)
+            await update.edit_message_text("📝 Your pending tasks:", reply_markup=reply_markup)
         else:
-            await update.message.reply_text(f"Your pending tasks:", reply_markup=reply_markup)
+            await update.message.reply_text("📝 Your pending tasks:", reply_markup=reply_markup)
     else:
         if is_callback:
             await update.edit_message_text("You have no pending tasks.")
@@ -123,7 +127,7 @@ async def completetask(update: Update, context: CallbackContext, task_index: int
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
-        await update.edit_message_text(f"Task '{task_name}' marked as completed.")
+        await update.edit_message_text(f"✅ Task '{task_name}' marked as completed.")
         await start_callback(update, context)
     else:
         await update.message.reply_text("Task not found.")
@@ -134,7 +138,7 @@ async def removetask(update, context: CallbackContext, task_index: int):
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
-        await update.edit_message_text(f"Task '{task_name}' removed.")
+        await update.edit_message_text(f"❌ Task '{task_name}' removed.")
         await start_callback(update, context)
     else:
         await update.message.reply_text("Task not found.")
@@ -148,15 +152,36 @@ async def history(update, context: CallbackContext, is_callback=False):
     tasks = user_tasks.get(user_id, [])
     if tasks:
         task_list = "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(tasks))
+        buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
+        reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"Your task history:\n{task_list}")
+            await update.edit_message_text(f"📜 Your task history:\n{task_list}", reply_markup=reply_markup)
         else:
-            await update.message.reply_text(f"Your task history:\n{task_list}")
+            await update.message.reply_text(f"📜 Your task history:\n{task_list}", reply_markup=reply_markup)
     else:
         if is_callback:
             await update.edit_message_text("No task history available.")
         else:
             await update.message.reply_text("No task history available.")
+
+# Command /help
+async def help_command(update, context: CallbackContext, is_callback=False):
+    help_text = (
+        "Help\n\n"
+        "Here are the available commands:\n"
+        "/start - Start the bot and show the main menu\n"
+        "/addtask <task_name> - Add a new task\n"
+        "/viewtasks - View your pending tasks\n"
+        "/completetask <task_name> - Mark a task as completed\n"
+        "/removetask <task_name> - Remove a task\n"
+        "/history - View the task history\n"
+    )
+    buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
+    reply_markup = InlineKeyboardMarkup(buttons)
+    if is_callback:
+        await update.edit_message_text(text=help_text, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(text=help_text, reply_markup=reply_markup)
 
 def main():
     # Use the token obtained from the environment variable
@@ -164,6 +189,7 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addtask", addtask))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CallbackQueryHandler(button_callback))
 
     application.run_polling(stop_signals=None)
