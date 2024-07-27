@@ -70,6 +70,10 @@ async def button_callback(update: Update, context: CallbackContext):
     elif query.data.startswith('remove_'):
         task_index = int(query.data.split('_')[1])
         await removetask(query, context, task_index)
+    elif query.data.startswith('restore_'):
+        task_type, task_index = query.data.split('_')[1:]
+        task_index = int(task_index)
+        await restoretask(query, context, task_type, task_index)
     elif query.data == 'history':
         await history(query, context, is_callback=True)
     elif query.data == 'help':
@@ -162,6 +166,32 @@ async def removetask(update, context: CallbackContext, task_index: int):
     else:
         await update.message.reply_text("Task not found.")
 
+# Command /restoretask
+async def restoretask(update, context: CallbackContext, task_type: str, task_index: int):
+    user_id = update.from_user.id
+    if task_type == 'completed':
+        tasks = completed_tasks.get(user_id, [])
+        if 0 <= task_index < len(tasks):
+            task_name = tasks.pop(task_index)
+            if user_id not in user_tasks:
+                user_tasks[user_id] = []
+            user_tasks[user_id].append(task_name)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task '{task_name}' restored to pending.", disable_web_page_preview=True)
+            await start_callback(update, context)
+        else:
+            await update.message.reply_text("Task not found.")
+    elif task_type == 'removed':
+        tasks = removed_tasks.get(user_id, [])
+        if 0 <= task_index < len(tasks):
+            task_name = tasks.pop(task_index)
+            if user_id not in user_tasks:
+                user_tasks[user_id] = []
+            user_tasks[user_id].append(task_name)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task '{task_name}' restored to pending.", disable_web_page_preview=True)
+            await start_callback(update, context)
+        else:
+            await update.message.reply_text("Task not found.")
+
 # Command /history
 async def history(update, context: CallbackContext, is_callback=False):
     if is_callback:
@@ -172,16 +202,21 @@ async def history(update, context: CallbackContext, is_callback=False):
     rem_tasks = removed_tasks.get(user_id, [])
     if comp_tasks or rem_tasks:
         task_list = ""
+        buttons = []
         if comp_tasks:
-            task_list += "\n✅ Completed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
+            task_list += "✅ *Completed Tasks:*\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
+            for idx, task in enumerate(comp_tasks):
+                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_completed_{idx}")])
         if rem_tasks:
-            task_list += "\n❌ Removed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
-        buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
+            task_list += "\n\n❌ *Removed Tasks:*\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
+            for idx, task in enumerate(rem_tasks):
+                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{idx}")])
+        buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 *Your task history:*\n{task_list}", reply_markup=reply_markup, parse_mode="Markdown", disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 *Your task history:*\n{task_list}", reply_markup=reply_markup, parse_mode="Markdown", disable_web_page_preview=True)
     else:
         if is_callback:
             await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
