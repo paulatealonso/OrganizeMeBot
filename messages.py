@@ -1,0 +1,15 @@
+WELCOME_MESSAGE = (
+    "👋 Welcome to the Task Management Bot!\n"
+    "I am here to help you manage your tasks efficiently.\n\n"
+    "✨ How to Use the Bot:\n"
+    "1. ➕ Add Task: Use the button or command /addtask <task_name> to add a new task.\n"
+    "2. 📝 View Tasks: View your pending tasks.\n"
+    "3. ✅ Complete Tasks: Mark a task as completed.\n"
+    "4. ❌ Remove Tasks: Remove a task you no longer need.\n"
+    "5. 📜 Task History: View your completed and removed tasks.\n\n"
+    "🔗 Useful Links:\n"
+    "🔹 Follow more of my projects on GitHub: https://github.com/paulatealonso\n"
+    "🔹 Join our Reddit community: https://www.reddit.com/r/TONCALLSECURE/\n"
+    "🔹 Check out our sponsored TON call channel: https://t.me/TONCALLSECURE\n\n"
+    "Feel free to reach out if you have any questions or need assistance."
+)
