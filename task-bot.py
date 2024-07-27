@@ -23,7 +23,9 @@ WELCOME_MESSAGE = (
     "👋 Welcome to the Task Management Bot!\n"
     "I am here to help you manage your tasks efficiently.\n\n"
     "🔹 Use the buttons below to interact with me or type the commands directly.\n"
-    "🔹 Check out our sponsored TON call channel: [TON Call Secure](https://t.me/TONCALLSECURE)\n\n"
+    "🔹 Check out our sponsored TON call channel: [TON Call Secure](https://t.me/TONCALLSECURE)\n"
+    "🔹 Follow more of my projects on GitHub: [GitHub Profile](https://github.com/paulatealonso)\n"
+    "🔹 Join our Reddit community: [TONCALLSECURE Reddit](https://www.reddit.com/r/TONCALLSECURE/)\n\n"
     "Feel free to reach out if you have any questions or need assistance."
 )
 
