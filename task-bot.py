@@ -15,6 +15,8 @@ if TELEGRAM_API_TOKEN is None:
 
 # Dictionary to store tasks per user
 user_tasks = {}
+completed_tasks = {}
+removed_tasks = {}
 
 # Welcome and Description Message
 WELCOME_MESSAGE = (
@@ -138,6 +140,9 @@ async def completetask(update: Update, context: CallbackContext, task_index: int
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
+        if user_id not in completed_tasks:
+            completed_tasks[user_id] = []
+        completed_tasks[user_id].append(task_name)
         await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n✅ Task '{task_name}' marked as completed.", disable_web_page_preview=True)
         await start_callback(update, context)
     else:
@@ -149,6 +154,9 @@ async def removetask(update, context: CallbackContext, task_index: int):
     tasks = user_tasks.get(user_id, [])
     if 0 <= task_index < len(tasks):
         task_name = tasks.pop(task_index)
+        if user_id not in removed_tasks:
+            removed_tasks[user_id] = []
+        removed_tasks[user_id].append(task_name)
         await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n❌ Task '{task_name}' removed.", disable_web_page_preview=True)
         await start_callback(update, context)
     else:
@@ -160,9 +168,14 @@ async def history(update, context: CallbackContext, is_callback=False):
         user_id = update.from_user.id
     else:
         user_id = update.message.from_user.id
-    tasks = user_tasks.get(user_id, [])
-    if tasks:
-        task_list = "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(tasks))
+    comp_tasks = completed_tasks.get(user_id, [])
+    rem_tasks = removed_tasks.get(user_id, [])
+    if comp_tasks or rem_tasks:
+        task_list = ""
+        if comp_tasks:
+            task_list += "\n✅ Completed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
+        if rem_tasks:
+            task_list += "\n❌ Removed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
         buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
