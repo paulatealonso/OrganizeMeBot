@@ -83,7 +83,7 @@ async def button_callback(update: Update, context: CallbackContext):
         task_index = int(task_index)
         await restoretask(query, context, task_type, task_index)
     elif query.data == 'history':
-        await history(query, context, is_callback=True)
+        await taskhistory(query, context, is_callback=True)
     elif query.data == 'help':
         await help_command(query, context, is_callback=True)
 
@@ -120,11 +120,8 @@ async def addtask(update: Update, context: CallbackContext):
         await update.message.reply_text("Please provide the task name using /addtask <task_name>")
 
 # Command /viewtasks
-async def viewtasks(update, context: CallbackContext, is_callback=False):
-    if is_callback:
-        user_id = update.from_user.id
-    else:
-        user_id = update.message.from_user.id
+async def viewtasks(update: Update, context: CallbackContext, is_callback=False):
+    user_id = update.message.from_user.id if not is_callback else update.from_user.id
     tasks = user_tasks.get(user_id, [])
     if tasks:
         buttons = []
@@ -136,15 +133,17 @@ async def viewtasks(update, context: CallbackContext, is_callback=False):
             ])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
+        message_text = "📝 Your pending tasks:"
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📝 Your pending tasks:", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.edit_message_text(message_text, reply_markup=reply_markup, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📝 Your pending tasks:", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.message.reply_text(message_text, reply_markup=reply_markup, disable_web_page_preview=True)
     else:
+        message_text = "You have no pending tasks."
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nYou have no pending tasks.", disable_web_page_preview=True)
+            await update.edit_message_text(message_text, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\nYou have no pending tasks.", disable_web_page_preview=True)
+            await update.message.reply_text(message_text, disable_web_page_preview=True)
 
 # Command /completetask
 async def completetask(update: Update, context: CallbackContext, task_index: int):
@@ -200,12 +199,9 @@ async def restoretask(update, context: CallbackContext, task_type: str, task_ind
         else:
             await update.message.reply_text("Task not found.")
 
-# Command /history
-async def history(update, context: CallbackContext, is_callback=False):
-    if is_callback:
-        user_id = update.from_user.id
-    else:
-        user_id = update.message.from_user.id
+# Command /taskhistory
+async def taskhistory(update, context: CallbackContext, is_callback=False):
+    user_id = update.message.from_user.id if not is_callback else update.from_user.id
     comp_tasks = completed_tasks.get(user_id, [])
     rem_tasks = removed_tasks.get(user_id, [])
     if comp_tasks or rem_tasks:
@@ -221,15 +217,17 @@ async def history(update, context: CallbackContext, is_callback=False):
                 buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{idx}")])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
+        message_text = f"📜 Your task history:\n{task_list}"
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.edit_message_text(message_text, reply_markup=reply_markup, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
+            await update.message.reply_text(message_text, reply_markup=reply_markup, disable_web_page_preview=True)
     else:
+        message_text = "No task history available."
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
+            await update.edit_message_text(message_text, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
+            await update.message.reply_text(message_text, disable_web_page_preview=True)
 
 # Command /help
 async def help_command(update, context: CallbackContext, is_callback=False):
@@ -239,16 +237,16 @@ async def help_command(update, context: CallbackContext, is_callback=False):
         "/start - Start the bot and show the main menu\n"
         "/addtask <task_name> - Add a new task\n"
         "/viewtasks - View your pending tasks\n"
-        "/completetask <task_name> - Mark a task as completed\n"
-        "/removetask <task_name> - Remove a task\n"
-        "/history - View the task history\n"
+        "/taskhistory - View the task history\n"
+        "/help - Show this help message\n"
     )
     buttons = [[InlineKeyboardButton("🔙 Back to Menu", callback_data='back')]]
     reply_markup = InlineKeyboardMarkup(buttons)
+    message_text = f"{WELCOME_MESSAGE}\n\n{help_text}"
     if is_callback:
-        await update.edit_message_text(text=f"{WELCOME_MESSAGE}\n\n{help_text}", reply_markup=reply_markup, disable_web_page_preview=True)
+        await update.edit_message_text(text=message_text, reply_markup=reply_markup, disable_web_page_preview=True)
     else:
-        await update.message.reply_text(text=f"{WELCOME_MESSAGE}\n\n{help_text}", reply_markup=reply_markup, disable_web_page_preview=True)
+        await update.message.reply_text(text=message_text, reply_markup=reply_markup, disable_web_page_preview=True)
 
 def main():
     # Use the token obtained from the environment variable
@@ -256,6 +254,8 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addtask", addtask))
+    application.add_handler(CommandHandler("viewtasks", viewtasks))
+    application.add_handler(CommandHandler("taskhistory", taskhistory))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CallbackQueryHandler(button_callback))
 
