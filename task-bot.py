@@ -126,11 +126,11 @@ async def viewtasks(update: Update, context: CallbackContext, is_callback=False)
     if tasks:
         buttons = []
         for idx, task in enumerate(tasks):
-            buttons.append([InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{idx}")])
-            buttons.append([
-                InlineKeyboardButton("✅ Complete", callback_data=f"complete_{idx}"),
-                InlineKeyboardButton("❌ Remove", callback_data=f"remove_{idx}")
-            ])
+            task_button = InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{idx}")
+            complete_button = InlineKeyboardButton("✅ Complete", callback_data=f"complete_{idx}")
+            remove_button = InlineKeyboardButton("❌ Remove", callback_data=f"remove_{idx}")
+            buttons.append([task_button])
+            buttons.append([complete_button, remove_button])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         message_text = "📝 Your pending tasks:"
@@ -205,19 +205,18 @@ async def taskhistory(update, context: CallbackContext, is_callback=False):
     comp_tasks = completed_tasks.get(user_id, [])
     rem_tasks = removed_tasks.get(user_id, [])
     if comp_tasks or rem_tasks:
-        task_list = ""
         buttons = []
         if comp_tasks:
-            task_list += "✅ Completed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
             for idx, task in enumerate(comp_tasks):
+                buttons.append([InlineKeyboardButton(f"✅ {idx + 1}. {task}", callback_data=f"task_completed_{idx}")])
                 buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_completed_{idx}")])
         if rem_tasks:
-            task_list += "\n\n❌ Removed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
             for idx, task in enumerate(rem_tasks):
+                buttons.append([InlineKeyboardButton(f"❌ {idx + 1}. {task}", callback_data=f"task_removed_{idx}")])
                 buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{idx}")])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
-        message_text = f"📜 Your task history:\n{task_list}"
+        message_text = f"{WELCOME_MESSAGE}\n\n📜 Your task history:"
         if is_callback:
             await update.edit_message_text(message_text, reply_markup=reply_markup, disable_web_page_preview=True)
         else:
