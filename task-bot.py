@@ -22,10 +22,16 @@ removed_tasks = {}
 WELCOME_MESSAGE = (
     "👋 Welcome to the Task Management Bot!\n"
     "I am here to help you manage your tasks efficiently.\n\n"
-    "🔹 Use the buttons below to interact with me or type the commands directly.\n"
-    "🔹 Check out our sponsored TON call channel: [TON Call Secure](https://t.me/TONCALLSECURE)\n"
-    "🔹 Follow more of my projects on GitHub: [GitHub Profile](https://github.com/paulatealonso)\n"
-    "🔹 Join our Reddit community: [TONCALLSECURE Reddit](https://www.reddit.com/r/TONCALLSECURE/)\n\n"
+    "✨ How to Use the Bot:\n"
+    "1. ➕ Add Task: Use the button or command /addtask <task_name> to add a new task.\n"
+    "2. 📝 View Tasks: View your pending tasks.\n"
+    "3. ✅ Complete Tasks: Mark a task as completed.\n"
+    "4. ❌ Remove Tasks: Remove a task you no longer need.\n"
+    "5. 📜 Task History: View your completed and removed tasks.\n\n"
+    "🔗 Useful Links:\n"
+    "🔹 Follow more of my projects on GitHub: https://github.com/paulatealonso\n"
+    "🔹 Join our Reddit community: https://www.reddit.com/r/TONCALLSECURE/\n"
+    "🔹 Check out our sponsored TON call channel: https://t.me/TONCALLSECURE\n\n"
     "Feel free to reach out if you have any questions or need assistance."
 )
 
@@ -206,19 +212,19 @@ async def history(update, context: CallbackContext, is_callback=False):
         task_list = ""
         buttons = []
         if comp_tasks:
-            task_list += "✅ *Completed Tasks:*\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
+            task_list += "✅ Completed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(comp_tasks))
             for idx, task in enumerate(comp_tasks):
                 buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_completed_{idx}")])
         if rem_tasks:
-            task_list += "\n\n❌ *Removed Tasks:*\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
+            task_list += "\n\n❌ Removed Tasks:\n" + "\n".join(f"{idx + 1}. {task}" for idx, task in enumerate(rem_tasks))
             for idx, task in enumerate(rem_tasks):
                 buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{idx}")])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         if is_callback:
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 *Your task history:*\n{task_list}", reply_markup=reply_markup, parse_mode="Markdown", disable_web_page_preview=True)
+            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
         else:
-            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 *Your task history:*\n{task_list}", reply_markup=reply_markup, parse_mode="Markdown", disable_web_page_preview=True)
+            await update.message.reply_text(f"{WELCOME_MESSAGE}\n\n📜 Your task history:\n{task_list}", reply_markup=reply_markup, disable_web_page_preview=True)
     else:
         if is_callback:
             await update.edit_message_text(f"{WELCOME_MESSAGE}\n\nNo task history available.", disable_web_page_preview=True)
