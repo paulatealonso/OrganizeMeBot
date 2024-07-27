@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler
 from dotenv import load_dotenv
@@ -13,10 +14,53 @@ TELEGRAM_API_TOKEN = os.getenv("TELEGRAM_API_TOKEN")
 if TELEGRAM_API_TOKEN is None:
     raise ValueError("TELEGRAM_API_TOKEN not found in environment variables")
 
-# Dictionary to store tasks per user
-user_tasks = {}
-completed_tasks = {}
-removed_tasks = {}
+# Initialize the database
+def init_db():
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS tasks (
+        user_id INTEGER,
+        task TEXT,
+        status TEXT
+    )''')
+    conn.commit()
+    conn.close()
+
+# Function to add a task to the database
+def add_task(user_id, task, status="pending"):
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO tasks (user_id, task, status) VALUES (?, ?, ?)", (user_id, task, status))
+    conn.commit()
+    conn.close()
+
+# Function to get tasks from the database
+def get_tasks(user_id, status=None):
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    if status:
+        c.execute("SELECT rowid, task FROM tasks WHERE user_id = ? AND status = ?", (user_id, status))
+    else:
+        c.execute("SELECT rowid, task, status FROM tasks WHERE user_id = ?", (user_id,))
+    tasks = c.fetchall()
+    conn.close()
+    return tasks
+
+# Function to update task status
+def update_task_status(rowid, status):
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    c.execute("UPDATE tasks SET status = ? WHERE rowid = ?", (status, rowid))
+    conn.commit()
+    conn.close()
+
+# Function to delete a task from the database
+def delete_task(rowid):
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM tasks WHERE rowid = ?", (rowid,))
+    conn.commit()
+    conn.close()
 
 # Welcome and Description Message
 WELCOME_MESSAGE = (
@@ -37,7 +81,8 @@ WELCOME_MESSAGE = (
 
 # Function to generate the main menu keyboard
 def get_main_menu_keyboard(user_id):
-    if user_id in user_tasks and user_tasks[user_id]:
+    tasks = get_tasks(user_id, status="pending")
+    if tasks:
         return [
             [InlineKeyboardButton("➕ Add Task", callback_data='addtask')],
             [InlineKeyboardButton("📝 View Tasks", callback_data='viewtasks')],
@@ -102,9 +147,7 @@ async def addtask(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     task_name = ' '.join(context.args)
     if task_name:
-        if user_id not in user_tasks:
-            user_tasks[user_id] = []
-        user_tasks[user_id].append(task_name)
+        add_task(user_id, task_name)
         await update.message.reply_text(f"✅ Task '{task_name}' added successfully.")
         
         keyboard = [
@@ -122,13 +165,13 @@ async def addtask(update: Update, context: CallbackContext):
 # Command /viewtasks
 async def viewtasks(update: Update, context: CallbackContext, is_callback=False):
     user_id = update.message.from_user.id if not is_callback else update.from_user.id
-    tasks = user_tasks.get(user_id, [])
+    tasks = get_tasks(user_id, status="pending")
     if tasks:
         buttons = []
-        for idx, task in enumerate(tasks):
-            task_button = InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{idx}")
-            complete_button = InlineKeyboardButton("✅ Complete", callback_data=f"complete_{idx}")
-            remove_button = InlineKeyboardButton("❌ Remove", callback_data=f"remove_{idx}")
+        for idx, (rowid, task) in enumerate(tasks):
+            task_button = InlineKeyboardButton(f"{idx + 1}. {task}", callback_data=f"task_{rowid}")
+            complete_button = InlineKeyboardButton("✅ Complete", callback_data=f"complete_{rowid}")
+            remove_button = InlineKeyboardButton("❌ Remove", callback_data=f"remove_{rowid}")
             buttons.append([task_button])
             buttons.append([complete_button, remove_button])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
@@ -148,72 +191,44 @@ async def viewtasks(update: Update, context: CallbackContext, is_callback=False)
 # Command /completetask
 async def completetask(update: Update, context: CallbackContext, task_index: int):
     user_id = update.from_user.id
-    tasks = user_tasks.get(user_id, [])
-    if 0 <= task_index < len(tasks):
-        task_name = tasks.pop(task_index)
-        if user_id not in completed_tasks:
-            completed_tasks[user_id] = []
-        completed_tasks[user_id].append(task_name)
-        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n✅ Task '{task_name}' marked as completed.", disable_web_page_preview=True)
-        await start_callback(update, context)
-    else:
-        await update.message.reply_text("Task not found.")
+    update_task_status(task_index, "completed")
+    await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n✅ Task marked as completed.", disable_web_page_preview=True)
+    await start_callback(update, context)
 
 # Command /removetask
 async def removetask(update, context: CallbackContext, task_index: int):
     user_id = update.from_user.id
-    tasks = user_tasks.get(user_id, [])
-    if 0 <= task_index < len(tasks):
-        task_name = tasks.pop(task_index)
-        if user_id not in removed_tasks:
-            removed_tasks[user_id] = []
-        removed_tasks[user_id].append(task_name)
-        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n❌ Task '{task_name}' removed.", disable_web_page_preview=True)
-        await start_callback(update, context)
-    else:
-        await update.message.reply_text("Task not found.")
+    update_task_status(task_index, "removed")
+    await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n❌ Task removed.", disable_web_page_preview=True)
+    await start_callback(update, context)
 
 # Command /restoretask
 async def restoretask(update, context: CallbackContext, task_type: str, task_index: int):
     user_id = update.from_user.id
     if task_type == 'completed':
-        tasks = completed_tasks.get(user_id, [])
-        if 0 <= task_index < len(tasks):
-            task_name = tasks.pop(task_index)
-            if user_id not in user_tasks:
-                user_tasks[user_id] = []
-            user_tasks[user_id].append(task_name)
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task '{task_name}' restored to pending.", disable_web_page_preview=True)
-            await start_callback(update, context)
-        else:
-            await update.message.reply_text("Task not found.")
+        update_task_status(task_index, "pending")
+        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task restored to pending.", disable_web_page_preview=True)
+        await start_callback(update, context)
     elif task_type == 'removed':
-        tasks = removed_tasks.get(user_id, [])
-        if 0 <= task_index < len(tasks):
-            task_name = tasks.pop(task_index)
-            if user_id not in user_tasks:
-                user_tasks[user_id] = []
-            user_tasks[user_id].append(task_name)
-            await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task '{task_name}' restored to pending.", disable_web_page_preview=True)
-            await start_callback(update, context)
-        else:
-            await update.message.reply_text("Task not found.")
+        update_task_status(task_index, "pending")
+        await update.edit_message_text(f"{WELCOME_MESSAGE}\n\n♻️ Task restored to pending.", disable_web_page_preview=True)
+        await start_callback(update, context)
 
 # Command /taskhistory
 async def taskhistory(update, context: CallbackContext, is_callback=False):
     user_id = update.message.from_user.id if not is_callback else update.from_user.id
-    comp_tasks = completed_tasks.get(user_id, [])
-    rem_tasks = removed_tasks.get(user_id, [])
+    comp_tasks = get_tasks(user_id, status="completed")
+    rem_tasks = get_tasks(user_id, status="removed")
     if comp_tasks or rem_tasks:
         buttons = []
         if comp_tasks:
-            for idx, task in enumerate(comp_tasks):
-                buttons.append([InlineKeyboardButton(f"✅ {idx + 1}. {task}", callback_data=f"task_completed_{idx}")])
-                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_completed_{idx}")])
+            for idx, (rowid, task) in enumerate(comp_tasks):
+                buttons.append([InlineKeyboardButton(f"✅ {idx + 1}. {task}", callback_data=f"task_completed_{rowid}")])
+                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_completed_{rowid}")])
         if rem_tasks:
-            for idx, task in enumerate(rem_tasks):
-                buttons.append([InlineKeyboardButton(f"❌ {idx + 1}. {task}", callback_data=f"task_removed_{idx}")])
-                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{idx}")])
+            for idx, (rowid, task) in enumerate(rem_tasks):
+                buttons.append([InlineKeyboardButton(f"❌ {idx + 1}. {task}", callback_data=f"task_removed_{rowid}")])
+                buttons.append([InlineKeyboardButton(f"♻️ Restore '{task}'", callback_data=f"restore_removed_{rowid}")])
         buttons.append([InlineKeyboardButton("🔙 Back to Menu", callback_data='back')])
         reply_markup = InlineKeyboardMarkup(buttons)
         message_text = f"{WELCOME_MESSAGE}\n\n📜 Your task history:"
@@ -248,6 +263,9 @@ async def help_command(update, context: CallbackContext, is_callback=False):
         await update.message.reply_text(text=message_text, reply_markup=reply_markup, disable_web_page_preview=True)
 
 def main():
+    # Initialize the database
+    init_db()
+
     # Use the token obtained from the environment variable
     application = Application.builder().token(TELEGRAM_API_TOKEN).build()
 
